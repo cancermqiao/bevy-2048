@@ -1,0 +1,31 @@
+[package]
+name = "bevy-2048"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.13"
+itertools = "0.12"
+rand = "0.8"
+bevy_easings = "0.13"
+console_error_panic_hook = "0.1"
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+# Compiling with Link Time Optimizations (LTO)
+lto = true
+codegen-units = 1
+# Tell LLVM to Optimize for Size Instead of Speed
+opt-level = 's'
+# More aggressively optimize for size, at further potential speed costs:
+# opt-level = 'z'
+
+
+# Enable high optimizations for dependencies (incl. Bevy)
+[profile.dev.package."*"]
+opt-level = 3
