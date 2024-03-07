@@ -20,8 +20,9 @@ opt-level = 1
 # Compiling with Link Time Optimizations (LTO)
 lto = true
 codegen-units = 1
+opt-level = 3
 # Tell LLVM to Optimize for Size Instead of Speed
-opt-level = 's'
+# opt-level = 's'
 # More aggressively optimize for size, at further potential speed costs:
 # opt-level = 'z'
 

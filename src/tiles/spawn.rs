@@ -1,11 +1,10 @@
 use bevy::prelude::*;
 use itertools::Itertools;
-use rand::seq::IteratorRandom;
+use rand::{seq::IteratorRandom, Rng};
 
 use crate::{
     asset_loader::FontSpec,
-    borad::{Board, TILE_SIZE},
-    color::tile::TILE,
+    board::{Board, TILE_SIZE},
 };
 
 use super::{Points, Position, TileText};
@@ -32,16 +31,21 @@ pub fn spawn_tile(
     pos: Position,
     font_spec: &Res<FontSpec>,
 ) {
+    // random spawn 2 or 4
+    let mut rng = rand::thread_rng();
+    let value = if rng.gen_ratio(1, 10) { 4 } else { 2 };
+    let points = Points::new(value);
+
     commands
         .spawn(SpriteBundle {
             sprite: Sprite {
-                color: TILE,
+                color: points.tile_color(),
                 custom_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
                 ..default()
             },
             transform: Transform::from_xyz(
-                board.tile_position_to_physical(pos.x),
-                board.tile_position_to_physical(pos.y),
+                board.tile_position_to_physical_x(pos.x),
+                board.tile_position_to_physical_y(pos.y),
                 1.0,
             ),
             ..default()
@@ -50,11 +54,11 @@ pub fn spawn_tile(
             child_builder
                 .spawn(Text2dBundle {
                     text: Text::from_section(
-                        "2",
+                        value.to_string(),
                         TextStyle {
                             font: font_spec.family.clone(),
                             font_size: 40.0,
-                            color: Color::BLACK,
+                            color: points.text_color(),
                         },
                     ),
                     transform: Transform::from_xyz(0.0, 0.0, 1.0),
@@ -62,6 +66,6 @@ pub fn spawn_tile(
                 })
                 .insert(TileText);
         })
-        .insert(Points::new(2))
+        .insert(points)
         .insert(pos);
 }
