@@ -6,10 +6,18 @@ use bevy_easings::{Ease, EaseFunction, EasingType};
 use itertools::Itertools;
 use rand::seq::IteratorRandom;
 
-use crate::{asset_loader::FontSpec, borad::Board, state::GameState};
+use crate::{
+    asset_loader::FontSpec,
+    board::Board,
+    color::tile::{
+        TILE_1024, TILE_128, TILE_16, TILE_2, TILE_2048, TILE_256, TILE_32, TILE_4, TILE_512,
+        TILE_64, TILE_8, TILE_SUPER, TILE_TEXT_COLOR_DARK, TILE_TEXT_COLOR_LIGHT,
+    },
+    state::GameState,
+};
 
 use self::{
-    shift::tiles_shift,
+    shift::{keyboard_input_system, touch_input_system},
     spawn::{init_tiles, spawn_tile},
 };
 
@@ -21,6 +29,31 @@ pub struct Points {
 impl Points {
     fn new(value: u32) -> Self {
         Self { value }
+    }
+
+    fn tile_color(&self) -> Color {
+        match self.value {
+            2 => TILE_2,
+            4 => TILE_4,
+            8 => TILE_8,
+            16 => TILE_16,
+            32 => TILE_32,
+            64 => TILE_64,
+            128 => TILE_128,
+            256 => TILE_256,
+            512 => TILE_512,
+            1024 => TILE_1024,
+            2048 => TILE_2048,
+            _ => TILE_SUPER,
+        }
+    }
+
+    fn text_color(&self) -> Color {
+        if self.value > 4 {
+            TILE_TEXT_COLOR_LIGHT
+        } else {
+            TILE_TEXT_COLOR_DARK
+        }
     }
 }
 
@@ -46,10 +79,16 @@ pub struct TilesPlugin;
 
 impl Plugin for TilesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Playing), init_tiles)
+        app.add_systems(PostStartup, init_tiles)
+            .add_systems(OnExit(GameState::GameOver), init_tiles)
             .add_systems(
                 Update,
-                (tiles_shift, render_tiles, new_tile_handler, end_game)
+                (
+                    (keyboard_input_system, touch_input_system),
+                    render_tiles,
+                    new_tile_handler,
+                    end_game,
+                )
                     .chain()
                     .run_if(in_state(GameState::Playing)),
             )
@@ -68,8 +107,8 @@ fn render_tiles(
     for (entity, transform, pos) in tiles.iter() {
         commands.entity(entity).insert(transform.ease_to(
             Transform::from_xyz(
-                board.tile_position_to_physical(pos.x),
-                board.tile_position_to_physical(pos.y),
+                board.tile_position_to_physical_x(pos.x),
+                board.tile_position_to_physical_y(pos.y),
                 transform.translation.z,
             ),
             EaseFunction::QuadraticInOut,

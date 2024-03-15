@@ -4,8 +4,10 @@ use itertools::Itertools;
 use crate::color::{board::BOARD, tile::TILE_PLACEHOLDER};
 
 const TILE_NUM: u8 = 4;
-pub const TILE_SIZE: f32 = 40.0;
+pub const TILE_SIZE: f32 = 70.0;
 const TILE_SPACE: f32 = 10.0;
+const X_OFFSET: f32 = 0.0;
+const Y_OFFSET: f32 = -100.0;
 
 #[derive(Component)]
 pub struct Board {
@@ -23,7 +25,17 @@ impl Board {
 
     pub fn tile_position_to_physical(&self, pos: u8) -> f32 {
         let offset = -self.size / 2.0 + 0.5 * TILE_SIZE;
-        offset + f32::from(pos) * TILE_SIZE + f32::from(pos + 1) * TILE_SPACE
+        offset + f32::from(pos) * TILE_SIZE + f32::from(pos + 1) * TILE_SPACE + X_OFFSET
+    }
+
+    pub fn tile_position_to_physical_x(&self, pos: u8) -> f32 {
+        let offset = -self.size / 2.0 + 0.5 * TILE_SIZE;
+        offset + f32::from(pos) * TILE_SIZE + f32::from(pos + 1) * TILE_SPACE + X_OFFSET
+    }
+
+    pub fn tile_position_to_physical_y(&self, pos: u8) -> f32 {
+        let offset = -self.size / 2.0 + 0.5 * TILE_SIZE;
+        offset + f32::from(pos) * TILE_SIZE + f32::from(pos + 1) * TILE_SPACE + Y_OFFSET
     }
 }
 
@@ -44,6 +56,7 @@ fn spawn_board(mut commands: Commands) {
                 custom_size: Some(Vec2::new(board.size, board.size)),
                 ..default()
             },
+            transform: Transform::from_xyz(X_OFFSET, Y_OFFSET, 0.0),
             ..default()
         })
         .with_children(|builder| {

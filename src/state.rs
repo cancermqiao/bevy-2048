@@ -1,11 +1,17 @@
-use bevy::prelude::*;
+use bevy::{app::AppExit, prelude::*};
 
-use crate::{color, game::Game, tiles::Position};
+use crate::{
+    asset_loader::ButtonAssets,
+    game::Game,
+    tiles::Position,
+    ui::{ExitButton, PauseButton, RepeatButton},
+};
 
 #[derive(Debug, Default, States, Hash, Eq, PartialEq, Clone)]
 pub enum GameState {
     #[default]
     Playing,
+    Paused,
     GameOver,
 }
 
@@ -14,60 +20,100 @@ pub struct StatePlugin;
 impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameState>()
-            .add_systems(OnEnter(GameState::Playing), game_reset)
-            .add_systems(Update, (button_interaction_system, button_text_system));
+            .add_systems(OnExit(GameState::GameOver), game_reset)
+            .add_systems(
+                Update,
+                (
+                    pause_button_interaction_system.run_if(not(in_state(GameState::GameOver))),
+                    repeat_button_interaction_system,
+                    exit_button_interaction_system,
+                    transition_to_in_game.run_if(in_state(GameState::GameOver)),
+                ),
+            );
     }
 }
 
-fn button_interaction_system(
-    mut query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
+fn pause_button_interaction_system(
+    mut pause_button: Query<
+        (&Interaction, &mut UiImage),
+        (Changed<Interaction>, With<PauseButton>),
+    >,
+    button_assets: Res<ButtonAssets>,
     state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    for (interaction, mut color) in query.iter_mut() {
-        *color = match interaction {
-            Interaction::Pressed => {
-                match state.get() {
-                    GameState::Playing => {
-                        next_state.set(GameState::GameOver);
-                    }
-                    GameState::GameOver => {
-                        next_state.set(GameState::Playing);
-                    }
-                }
-                color::button::PRESSED
+    let Ok((interaction, mut ui_image)) = pause_button.get_single_mut() else {
+        return;
+    };
+    ui_image.texture = match interaction {
+        Interaction::Pressed => match state.get() {
+            GameState::Playing => {
+                next_state.set(GameState::Paused);
+                button_assets.play.hover.clone()
             }
-            Interaction::Hovered => color::button::HOVERED,
-            Interaction::None => color::button::NORMAL,
-        }
-        .into();
+            GameState::Paused => {
+                next_state.set(GameState::Playing);
+                button_assets.pause.hover.clone()
+            }
+            GameState::GameOver => ui_image.texture.clone(),
+        },
+        Interaction::Hovered => match state.get() {
+            GameState::Playing => button_assets.pause.hover.clone(),
+            GameState::Paused => button_assets.play.hover.clone(),
+            GameState::GameOver => ui_image.texture.clone(),
+        },
+        Interaction::None => match state.get() {
+            GameState::Playing => button_assets.pause.idle.clone(),
+            GameState::Paused => button_assets.play.idle.clone(),
+            GameState::GameOver => ui_image.texture.clone(),
+        },
     }
 }
 
-fn button_text_system(
-    button_query: Query<&Children, With<Button>>,
-    mut text_query: Query<&mut Text>,
-    state: Res<State<GameState>>,
+fn repeat_button_interaction_system(
+    mut repeat_button: Query<
+        (&Interaction, &mut UiImage),
+        (Changed<Interaction>, With<RepeatButton>),
+    >,
+    button_assets: Res<ButtonAssets>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
-    let children = button_query.single();
-    let first_child_entity = children
-        .first()
-        .expect("expect button to have a first child");
-    let mut text = text_query
-        .get_mut(*first_child_entity)
-        .expect("expected Text to exist");
-    let text_section = text
-        .sections
-        .first_mut()
-        .expect("expected first section to be accessible as mutable");
-    match state.get() {
-        GameState::Playing => {
-            text_section.value = "End Game".to_string();
+    let Ok((interaction, mut ui_image)) = repeat_button.get_single_mut() else {
+        return;
+    };
+    ui_image.texture = match interaction {
+        Interaction::Pressed => {
+            next_state.set(GameState::GameOver);
+            button_assets.repeat.hover.clone()
         }
-        GameState::GameOver => {
-            text_section.value = "New Game".to_string();
-        }
+        Interaction::Hovered => button_assets.repeat.hover.clone(),
+        Interaction::None => button_assets.repeat.idle.clone(),
     }
+}
+
+fn exit_button_interaction_system(
+    mut exit_button: Query<
+        (&Interaction, &mut UiImage),
+        (Changed<Interaction>, With<ExitButton>),
+    >,
+    button_assets: Res<ButtonAssets>,
+    mut app_exit_events: EventWriter<AppExit>,
+) {
+    let Ok((interaction, mut ui_image)) = exit_button.get_single_mut() else {
+        return;
+    };
+    ui_image.texture = match interaction {
+        Interaction::Pressed => {
+            app_exit_events.send(AppExit);
+            button_assets.exit.hover.clone()
+        }
+        Interaction::Hovered => button_assets.exit.hover.clone(),
+        Interaction::None => button_assets.exit.idle.clone(),
+    }
+}
+
+fn transition_to_in_game(mut next_state: ResMut<NextState<GameState>>) {
+    next_state.set(GameState::Playing);
 }
 
 fn game_reset(
