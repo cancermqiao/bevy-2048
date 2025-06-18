@@ -1,14 +1,18 @@
 use bevy::prelude::*;
 
-
 pub struct CameraPlugin;
-
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_camera);
+        app.add_systems(Startup, setup_camera);
     }
 }
 
-fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera2d,
+        Camera {
+            clear_color: ClearColorConfig::Custom(Color::srgb_u8(250, 248, 239)),
+            ..default()
+        },
+    ));
 }
