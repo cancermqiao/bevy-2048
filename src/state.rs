@@ -1,131 +1,67 @@
-use bevy::{app::AppExit, prelude::*};
+use bevy::dev_tools::states::*;
+use bevy::prelude::*;
 
-use crate::{
-    asset_loader::ButtonAssets,
-    game::Game,
-    tiles::Position,
-    ui::{ExitButton, PauseButton, RepeatButton},
-};
+const SPLASH_TIME: f32 = 2.0;
 
-#[derive(Debug, Default, States, Hash, Eq, PartialEq, Clone)]
-pub enum GameState {
+#[derive(Resource, Deref, DerefMut)]
+struct SplashTimer(Timer);
+
+impl Default for SplashTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(SPLASH_TIME, TimerMode::Once))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
+pub enum AppState {
     #[default]
-    Playing,
+    Splash,
+    GameSetup,
+    InGame,
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
+#[source(AppState = AppState::InGame)]
+#[states(scoped_entities)]
+pub enum InGame {
+    #[default]
+    Init,
+    Running,
     Paused,
     GameOver,
+}
+
+impl std::fmt::Display for InGame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InGame::Init => write!(f, "Init"),
+            InGame::Running => write!(f, "Running"),
+            InGame::Paused => write!(f, "Paused"), // Ensured correct typo here as well
+            InGame::GameOver => write!(f, "Game Over"),
+        }
+    }
 }
 
 pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<GameState>()
-            .add_systems(OnExit(GameState::GameOver), game_reset)
-            .add_systems(
-                Update,
-                (
-                    pause_button_interaction_system.run_if(not(in_state(GameState::GameOver))),
-                    repeat_button_interaction_system,
-                    exit_button_interaction_system,
-                    transition_to_in_game.run_if(in_state(GameState::GameOver)),
-                ),
-            );
+        app.init_state::<AppState>()
+            .add_sub_state::<InGame>()
+            .init_resource::<SplashTimer>()
+            .add_systems(Update, countdown.run_if(in_state(AppState::Splash)))
+            .add_systems(Update, log_transitions::<AppState>)
+            .add_systems(Update, log_transitions::<InGame>);
     }
 }
 
-fn pause_button_interaction_system(
-    mut pause_button: Query<
-        (&Interaction, &mut UiImage),
-        (Changed<Interaction>, With<PauseButton>),
-    >,
-    button_assets: Res<ButtonAssets>,
-    state: Res<State<GameState>>,
-    mut next_state: ResMut<NextState<GameState>>,
+// transition splash to game
+fn countdown(
+    mut game_state: ResMut<NextState<AppState>>,
+    time: Res<Time>,
+    mut timer: ResMut<SplashTimer>,
 ) {
-    let Ok((interaction, mut ui_image)) = pause_button.get_single_mut() else {
-        return;
-    };
-    ui_image.texture = match interaction {
-        Interaction::Pressed => match state.get() {
-            GameState::Playing => {
-                next_state.set(GameState::Paused);
-                button_assets.play.hover.clone()
-            }
-            GameState::Paused => {
-                next_state.set(GameState::Playing);
-                button_assets.pause.hover.clone()
-            }
-            GameState::GameOver => ui_image.texture.clone(),
-        },
-        Interaction::Hovered => match state.get() {
-            GameState::Playing => button_assets.pause.hover.clone(),
-            GameState::Paused => button_assets.play.hover.clone(),
-            GameState::GameOver => ui_image.texture.clone(),
-        },
-        Interaction::None => match state.get() {
-            GameState::Playing => button_assets.pause.idle.clone(),
-            GameState::Paused => button_assets.play.idle.clone(),
-            GameState::GameOver => ui_image.texture.clone(),
-        },
+    if timer.tick(time.delta()).finished() {
+        game_state.set(AppState::GameSetup);
     }
-}
-
-fn repeat_button_interaction_system(
-    mut repeat_button: Query<
-        (&Interaction, &mut UiImage),
-        (Changed<Interaction>, With<RepeatButton>),
-    >,
-    button_assets: Res<ButtonAssets>,
-    mut next_state: ResMut<NextState<GameState>>,
-) {
-    let Ok((interaction, mut ui_image)) = repeat_button.get_single_mut() else {
-        return;
-    };
-    ui_image.texture = match interaction {
-        Interaction::Pressed => {
-            next_state.set(GameState::GameOver);
-            button_assets.repeat.hover.clone()
-        }
-        Interaction::Hovered => button_assets.repeat.hover.clone(),
-        Interaction::None => button_assets.repeat.idle.clone(),
-    }
-}
-
-fn exit_button_interaction_system(
-    mut exit_button: Query<
-        (&Interaction, &mut UiImage),
-        (Changed<Interaction>, With<ExitButton>),
-    >,
-    button_assets: Res<ButtonAssets>,
-    mut app_exit_events: EventWriter<AppExit>,
-) {
-    let Ok((interaction, mut ui_image)) = exit_button.get_single_mut() else {
-        return;
-    };
-    ui_image.texture = match interaction {
-        Interaction::Pressed => {
-            app_exit_events.send(AppExit);
-            button_assets.exit.hover.clone()
-        }
-        Interaction::Hovered => button_assets.exit.hover.clone(),
-        Interaction::None => button_assets.exit.idle.clone(),
-    }
-}
-
-fn transition_to_in_game(mut next_state: ResMut<NextState<GameState>>) {
-    next_state.set(GameState::Playing);
-}
-
-fn game_reset(
-    mut commands: Commands,
-    tiles: Query<Entity, With<Position>>,
-    mut game: ResMut<Game>,
-) {
-    for entity in tiles.iter() {
-        commands.entity(entity).despawn_recursive();
-    }
-    if game.best_score < game.score {
-        game.best_score = game.score;
-    }
-    game.score = 0;
 }
