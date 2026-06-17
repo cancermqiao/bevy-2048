@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-latest
+            binary: bevy_2048
+            archive: bevy_2048-linux-x86_64.tar.gz
+          - name: macos
+            os: macos-13
+            binary: bevy_2048
+            archive: bevy_2048-macos-x86_64.tar.gz
+          - name: macos-arm64
+            os: macos-latest
+            binary: bevy_2048
+            archive: bevy_2048-macos-aarch64.tar.gz
+          - name: windows
+            os: windows-latest
+            binary: bevy_2048.exe
+            archive: bevy_2048-windows-x86_64.tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libudev-dev \
+            pkg-config
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust builds
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Package desktop artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package
+          cp "target/release/${{ matrix.binary }}" package/
+          cp -R assets package/
+          cp README.md package/
+          tar -czf "${{ matrix.archive }}" -C package .
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive }}
+          path: ${{ matrix.archive }}
+
+      - name: Upload release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.archive }}
