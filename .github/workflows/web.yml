@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Linux dependencies
         run: |
@@ -46,6 +46,9 @@ jobs:
 
       - name: Build web app
         run: trunk build --release --public-url "/${{ github.event.repository.name }}/"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
