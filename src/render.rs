@@ -10,8 +10,8 @@ pub const WINDOW_H: f32 = 860.0;
 const BOARD_SIZE: f32 = 560.0;
 const TILE_GAP: f32 = 14.0;
 const TILE_SIZE: f32 = (BOARD_SIZE - TILE_GAP * 5.0) / GRID as f32;
-const TILE_ANIMATION_SECONDS: f32 = 0.18;
-const TILE_POP_SECONDS: f32 = 0.08;
+const TILE_ANIMATION_SECONDS: f32 = 0.15;
+const TILE_POP_SECONDS: f32 = 0.045;
 
 pub(crate) struct RenderPlugin;
 
@@ -153,7 +153,7 @@ fn spawn_header(parent: &mut ChildSpawnerCommands, game: &Game, fonts: &GameFont
     parent
         .spawn(Node {
             width: Val::Px(BOARD_SIZE),
-            height: Val::Px(104.0),
+            height: Val::Px(100.0),
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
@@ -164,7 +164,7 @@ fn spawn_header(parent: &mut ChildSpawnerCommands, game: &Game, fonts: &GameFont
 
             header
                 .spawn(Node {
-                    width: Val::Px(244.0),
+                    width: Val::Px(236.0),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
@@ -192,14 +192,14 @@ fn spawn_header(parent: &mut ChildSpawnerCommands, game: &Game, fonts: &GameFont
 fn spawn_title_badge(parent: &mut ChildSpawnerCommands, fonts: &GameFonts) {
     parent
         .spawn(Node {
-            width: Val::Px(190.0),
-            height: Val::Px(70.0),
+            width: Val::Px(180.0),
+            height: Val::Px(66.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|badge| {
-            spawn_text(badge, "2048", 66.0, color_title(), fonts);
+            spawn_text(badge, "2048", 62.0, color_title(), fonts);
         });
 }
 
@@ -209,8 +209,8 @@ fn spawn_header_restart_button(parent: &mut ChildSpawnerCommands, fonts: &GameFo
             Button,
             RestartButton,
             Node {
-                width: Val::Px(158.0),
-                height: Val::Px(48.0),
+                width: Val::Px(148.0),
+                height: Val::Px(44.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border_radius: BorderRadius::all(Val::Px(16.0)),
@@ -222,8 +222,8 @@ fn spawn_header_restart_button(parent: &mut ChildSpawnerCommands, fonts: &GameFo
             spawn_text_with_weight(
                 button,
                 "New Game",
-                19.0,
-                color_light_text(),
+                18.0,
+                color_ink(),
                 FontWeight::MEDIUM,
                 fonts,
             );
@@ -499,7 +499,7 @@ fn spawn_modal_button<T: Component>(
             BackgroundColor(button_color()),
         ))
         .with_children(|button| {
-            spawn_text(button, label, 21.0, color_light_text(), fonts);
+            spawn_text(button, label, 21.0, color_ink(), fonts);
         });
 }
 
@@ -568,7 +568,7 @@ fn tile_pop_scale(game: &Game, row: usize, col: usize, elapsed: f32) -> f32 {
     // A tiny single pulse makes merges feel physical without adding visual wobble.
     let progress = pop_elapsed / TILE_POP_SECONDS;
     let pulse = 1.0 - (progress * 2.0 - 1.0).abs();
-    1.0 + pulse * 0.045
+    1.0 + pulse * 0.03
 }
 
 fn cell_position((row, col): (usize, usize)) -> Vec2 {
@@ -655,15 +655,15 @@ fn color_score_value() -> Color {
 }
 
 fn button_color() -> Color {
-    Color::srgb(0.57, 0.50, 0.43)
+    Color::srgb(0.88, 0.82, 0.74)
 }
 
 fn button_hover_color() -> Color {
-    Color::srgb(0.63, 0.56, 0.49)
+    Color::srgb(0.84, 0.77, 0.68)
 }
 
 fn button_pressed_color() -> Color {
-    Color::srgb(0.45, 0.39, 0.33)
+    Color::srgb(0.78, 0.70, 0.61)
 }
 
 fn tile_color(value: u32) -> Color {

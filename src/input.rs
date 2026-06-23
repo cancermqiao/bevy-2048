@@ -4,7 +4,7 @@ use crate::GameSet;
 use crate::game::{Direction, Game};
 
 const MIN_SWIPE_DISTANCE: f32 = 48.0;
-const MOVE_INPUT_COOLDOWN_SECONDS: f32 = 0.18;
+const MOVE_INPUT_COOLDOWN_SECONDS: f32 = 0.15;
 
 pub(crate) struct InputPlugin;
 
