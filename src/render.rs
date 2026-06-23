@@ -11,6 +11,7 @@ const BOARD_SIZE: f32 = 560.0;
 const TILE_GAP: f32 = 14.0;
 const TILE_SIZE: f32 = (BOARD_SIZE - TILE_GAP * 5.0) / GRID as f32;
 const TILE_ANIMATION_SECONDS: f32 = 0.18;
+const TILE_POP_SECONDS: f32 = 0.08;
 
 pub(crate) struct RenderPlugin;
 
@@ -99,7 +100,7 @@ fn render_game(
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                row_gap: Val::Px(22.0),
+                row_gap: Val::Px(18.0),
                 ..default()
             },
             BackgroundColor(color_bg()),
@@ -107,7 +108,14 @@ fn render_game(
         ))
         .with_children(|root| {
             spawn_header(root, &game, &fonts);
-            spawn_board(root, &game, tile_progress, is_animating, &fonts);
+            spawn_board(
+                root,
+                &game,
+                tile_progress,
+                is_animating,
+                motion.elapsed,
+                &fonts,
+            );
 
             if game.game_over {
                 spawn_game_over_modal(root, &fonts);
@@ -145,7 +153,7 @@ fn spawn_header(parent: &mut ChildSpawnerCommands, game: &Game, fonts: &GameFont
     parent
         .spawn(Node {
             width: Val::Px(BOARD_SIZE),
-            height: Val::Px(118.0),
+            height: Val::Px(104.0),
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
@@ -156,11 +164,11 @@ fn spawn_header(parent: &mut ChildSpawnerCommands, game: &Game, fonts: &GameFont
 
             header
                 .spawn(Node {
-                    width: Val::Px(258.0),
+                    width: Val::Px(244.0),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    row_gap: Val::Px(12.0),
+                    row_gap: Val::Px(10.0),
                     ..default()
                 })
                 .with_children(|actions| {
@@ -173,8 +181,8 @@ fn spawn_header(parent: &mut ChildSpawnerCommands, game: &Game, fonts: &GameFont
                             ..default()
                         })
                         .with_children(|scores| {
-                            spawn_score_card(scores, "SCORE", game.score, 128.0, fonts);
-                            spawn_score_card(scores, "BEST", game.best_score, 118.0, fonts);
+                            spawn_score_card(scores, "SCORE", game.score, 118.0, fonts);
+                            spawn_score_card(scores, "BEST", game.best_score, 110.0, fonts);
                         });
                     spawn_header_restart_button(actions, fonts);
                 });
@@ -184,14 +192,14 @@ fn spawn_header(parent: &mut ChildSpawnerCommands, game: &Game, fonts: &GameFont
 fn spawn_title_badge(parent: &mut ChildSpawnerCommands, fonts: &GameFonts) {
     parent
         .spawn(Node {
-            width: Val::Px(204.0),
-            height: Val::Px(76.0),
+            width: Val::Px(190.0),
+            height: Val::Px(70.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|badge| {
-            spawn_text(badge, "2048", 72.0, color_title(), fonts);
+            spawn_text(badge, "2048", 66.0, color_title(), fonts);
         });
 }
 
@@ -201,11 +209,11 @@ fn spawn_header_restart_button(parent: &mut ChildSpawnerCommands, fonts: &GameFo
             Button,
             RestartButton,
             Node {
-                width: Val::Px(176.0),
-                height: Val::Px(56.0),
+                width: Val::Px(158.0),
+                height: Val::Px(48.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(Val::Px(14.0)),
+                border_radius: BorderRadius::all(Val::Px(16.0)),
                 ..default()
             },
             BackgroundColor(button_color()),
@@ -214,7 +222,7 @@ fn spawn_header_restart_button(parent: &mut ChildSpawnerCommands, fonts: &GameFo
             spawn_text_with_weight(
                 button,
                 "New Game",
-                22.0,
+                19.0,
                 color_light_text(),
                 FontWeight::MEDIUM,
                 fonts,
@@ -233,13 +241,13 @@ fn spawn_score_card(
         .spawn((
             Node {
                 width: Val::Px(width),
-                height: Val::Px(68.0),
+                height: Val::Px(60.0),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 row_gap: Val::Px(2.0),
-                border: UiRect::all(Val::Px(1.5)),
-                border_radius: BorderRadius::all(Val::Px(16.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                border_radius: BorderRadius::all(Val::Px(15.0)),
                 ..default()
             },
             BackgroundColor(score_card_color()),
@@ -249,7 +257,7 @@ fn spawn_score_card(
             spawn_text_with_weight(
                 card,
                 label,
-                15.0,
+                13.0,
                 color_score_label(),
                 FontWeight::BOLD,
                 fonts,
@@ -257,7 +265,7 @@ fn spawn_score_card(
             spawn_text_with_weight(
                 card,
                 value.to_string(),
-                27.0,
+                25.0,
                 color_score_value(),
                 FontWeight::BOLD,
                 fonts,
@@ -270,6 +278,7 @@ fn spawn_board(
     game: &Game,
     tile_progress: f32,
     is_animating: bool,
+    motion_elapsed: f32,
     fonts: &GameFonts,
 ) {
     parent
@@ -304,7 +313,8 @@ fn spawn_board(
                             } else {
                                 game.board[row][col]
                             };
-                            spawn_tile(row_node, value, fonts);
+                            let scale = tile_pop_scale(game, row, col, motion_elapsed);
+                            spawn_tile(row_node, value, scale, fonts);
                         }
                     });
             }
@@ -315,7 +325,9 @@ fn spawn_board(
         });
 }
 
-fn spawn_tile(parent: &mut ChildSpawnerCommands, value: u32, fonts: &GameFonts) {
+fn spawn_tile(parent: &mut ChildSpawnerCommands, value: u32, scale: f32, fonts: &GameFonts) {
+    let tile_size = TILE_SIZE * scale;
+
     parent
         .spawn(Node {
             width: Val::Px(TILE_SIZE),
@@ -327,8 +339,8 @@ fn spawn_tile(parent: &mut ChildSpawnerCommands, value: u32, fonts: &GameFonts) 
         .with_children(|slot| {
             slot.spawn((
                 Node {
-                    width: Val::Px(TILE_SIZE),
-                    height: Val::Px(TILE_SIZE),
+                    width: Val::Px(tile_size),
+                    height: Val::Px(tile_size),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     border_radius: BorderRadius::all(Val::Px(12.0)),
@@ -537,6 +549,28 @@ fn tile_motion_progress(elapsed: f32) -> f32 {
     1.0 - (1.0 - progress).powi(4)
 }
 
+fn tile_pop_scale(game: &Game, row: usize, col: usize, elapsed: f32) -> f32 {
+    let pop_elapsed = elapsed - TILE_ANIMATION_SECONDS;
+    if !(0.0..=TILE_POP_SECONDS).contains(&pop_elapsed) {
+        return 1.0;
+    }
+
+    let cell = (row, col);
+    let was_merged = game
+        .motions
+        .iter()
+        .any(|motion| motion.merged && motion.to == cell);
+
+    if !was_merged {
+        return 1.0;
+    }
+
+    // A tiny single pulse makes merges feel physical without adding visual wobble.
+    let progress = pop_elapsed / TILE_POP_SECONDS;
+    let pulse = 1.0 - (progress * 2.0 - 1.0).abs();
+    1.0 + pulse * 0.045
+}
+
 fn cell_position((row, col): (usize, usize)) -> Vec2 {
     Vec2::new(
         TILE_GAP + col as f32 * (TILE_SIZE + TILE_GAP),
@@ -554,19 +588,19 @@ fn tile_shadow(value: u32) -> BoxShadow {
         BoxShadow(Vec::new())
     } else {
         BoxShadow::new(
-            Color::srgba(0.29, 0.23, 0.18, 0.22),
+            Color::srgba(0.28, 0.22, 0.17, 0.26),
             Val::Px(0.0),
-            Val::Px(5.0),
+            Val::Px(6.0),
             Val::Px(-2.0),
-            Val::Px(9.0),
+            Val::Px(10.0),
         )
     }
 }
 
 fn moving_tile_shadow(merged: bool) -> BoxShadow {
-    let opacity = if merged { 0.28 } else { 0.22 };
+    let opacity = if merged { 0.30 } else { 0.24 };
     BoxShadow::new(
-        Color::srgba(0.29, 0.23, 0.18, opacity),
+        Color::srgba(0.28, 0.22, 0.17, opacity),
         Val::Px(0.0),
         Val::Px(6.0),
         Val::Px(-2.0),
@@ -581,7 +615,7 @@ pub fn color_bg() -> Color {
 }
 
 fn color_board() -> Color {
-    Color::srgb(0.66, 0.59, 0.52)
+    Color::srgb(0.64, 0.57, 0.50)
 }
 
 fn color_panel() -> Color {
@@ -589,11 +623,11 @@ fn color_panel() -> Color {
 }
 
 fn color_ink() -> Color {
-    Color::srgb(0.48, 0.41, 0.34)
+    Color::srgb(0.46, 0.39, 0.32)
 }
 
 fn color_title() -> Color {
-    Color::srgb(0.48, 0.41, 0.34)
+    Color::srgb(0.46, 0.39, 0.32)
 }
 
 fn color_light_text() -> Color {
@@ -601,40 +635,40 @@ fn color_light_text() -> Color {
 }
 
 fn color_secondary_text() -> Color {
-    Color::srgb(0.59, 0.51, 0.43)
+    Color::srgb(0.56, 0.49, 0.42)
 }
 
 fn score_card_color() -> Color {
-    Color::srgb(0.95, 0.93, 0.88)
+    Color::srgb(0.96, 0.94, 0.90)
 }
 
 fn score_card_border_color() -> Color {
-    Color::srgb(0.90, 0.86, 0.78)
+    Color::srgb(0.91, 0.88, 0.81)
 }
 
 fn color_score_label() -> Color {
-    Color::srgb(0.61, 0.54, 0.46)
+    Color::srgb(0.59, 0.52, 0.45)
 }
 
 fn color_score_value() -> Color {
-    Color::srgb(0.57, 0.50, 0.43)
+    Color::srgb(0.54, 0.47, 0.40)
 }
 
 fn button_color() -> Color {
-    Color::srgb(0.60, 0.52, 0.45)
+    Color::srgb(0.57, 0.50, 0.43)
 }
 
 fn button_hover_color() -> Color {
-    Color::srgb(0.67, 0.59, 0.51)
+    Color::srgb(0.63, 0.56, 0.49)
 }
 
 fn button_pressed_color() -> Color {
-    Color::srgb(0.48, 0.41, 0.35)
+    Color::srgb(0.45, 0.39, 0.33)
 }
 
 fn tile_color(value: u32) -> Color {
     match value {
-        0 => Color::srgb(0.75, 0.68, 0.58),
+        0 => Color::srgb(0.71, 0.64, 0.55),
         2 => Color::srgb(0.93, 0.89, 0.84),
         4 => Color::srgb(0.94, 0.86, 0.70),
         8 => Color::srgb(0.96, 0.70, 0.45),
