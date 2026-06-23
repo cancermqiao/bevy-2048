@@ -513,8 +513,8 @@ fn spawn_text_with_weight(
     parent.spawn((
         Text::new(text),
         TextFont {
-            font: font_for_weight(fonts, weight),
-            font_size,
+            font: FontSource::Handle(font_for_weight(fonts, weight)),
+            font_size: FontSize::Px(font_size),
             weight,
             ..default()
         },
